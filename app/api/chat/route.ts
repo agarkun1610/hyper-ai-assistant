@@ -16,56 +16,102 @@ type Provider = {
 const SYSTEM_PROMPT =
   "You are Hyper AI Assistant. Be concise, direct and practical. Answer in plain language and avoid filler.";
 
-/**
- * Picks the first configured provider. Groq and OpenRouter both offer free
- * tiers, so they are checked before OpenAI, which requires paid credit.
- */
-function resolveProvider(): Provider | null {
+const GROQ = {
+  name: "Groq",
+  endpoint: "https://api.groq.com/openai/v1/chat/completions",
+  defaultModel: "llama-3.3-70b-versatile",
+};
+
+const OPENROUTER = {
+  name: "OpenRouter",
+  endpoint: "https://openrouter.ai/api/v1/chat/completions",
+  defaultModel: "meta-llama/llama-3.3-70b-instruct:free",
+};
+
+const OPENAI = {
+  name: "OpenAI",
+  endpoint: "https://api.openai.com/v1/chat/completions",
+  defaultModel: "gpt-4o-mini",
+};
+
+/** Identifies a provider from the shape of the key itself. */
+function providerFromKey(key: string): Provider | null {
+  const trimmed = key.trim();
+  if (trimmed.length === 0) return null;
+
+  const model = process.env.MODEL;
+
+  if (trimmed.startsWith("gsk_")) {
+    return { ...GROQ, apiKey: trimmed, model: model ?? GROQ.defaultModel };
+  }
+
+  if (trimmed.startsWith("sk-or-")) {
+    return {
+      ...OPENROUTER,
+      apiKey: trimmed,
+      model: model ?? OPENROUTER.defaultModel,
+    };
+  }
+
+  if (trimmed.startsWith("sk-")) {
+    return { ...OPENAI, apiKey: trimmed, model: model ?? OPENAI.defaultModel };
+  }
+
+  return null;
+}
+
+/** Server-side keys take priority; a browser-supplied key is the fallback. */
+function resolveProvider(suppliedKey?: string): Provider | null {
   const groqKey = process.env.GROQ_API_KEY;
   if (groqKey) {
     return {
-      name: "Groq",
-      endpoint: "https://api.groq.com/openai/v1/chat/completions",
+      ...GROQ,
       apiKey: groqKey,
-      model: process.env.MODEL ?? "llama-3.3-70b-versatile",
+      model: process.env.MODEL ?? GROQ.defaultModel,
     };
   }
 
   const openRouterKey = process.env.OPENROUTER_API_KEY;
   if (openRouterKey) {
     return {
-      name: "OpenRouter",
-      endpoint: "https://openrouter.ai/api/v1/chat/completions",
+      ...OPENROUTER,
       apiKey: openRouterKey,
-      model: process.env.MODEL ?? "meta-llama/llama-3.3-70b-instruct:free",
+      model: process.env.MODEL ?? OPENROUTER.defaultModel,
     };
   }
 
   const openAiKey = process.env.OPENAI_API_KEY;
   if (openAiKey) {
     return {
-      name: "OpenAI",
-      endpoint: "https://api.openai.com/v1/chat/completions",
+      ...OPENAI,
       apiKey: openAiKey,
-      model: process.env.MODEL ?? process.env.OPENAI_MODEL ?? "gpt-4o-mini",
+      model: process.env.MODEL ?? process.env.OPENAI_MODEL ?? OPENAI.defaultModel,
     };
+  }
+
+  if (suppliedKey) {
+    return providerFromKey(suppliedKey);
   }
 
   return null;
 }
 
-function extractMessages(body: unknown): Message[] {
-  if (
-    body &&
-    typeof body === "object" &&
-    Array.isArray((body as { messages?: unknown }).messages)
-  ) {
-    return (body as { messages: Message[] }).messages;
+function parseBody(body: unknown): { messages: Message[]; apiKey?: string } {
+  if (!body || typeof body !== "object") {
+    return { messages: [] };
   }
-  return [];
+
+  const candidate = body as { messages?: unknown; apiKey?: unknown };
+
+  return {
+    messages: Array.isArray(candidate.messages)
+      ? (candidate.messages as Message[])
+      : [],
+    apiKey: typeof candidate.apiKey === "string" ? candidate.apiKey : undefined,
+  };
 }
 
-/** Lets the interface show whether a model provider is connected. */
+/** Reports whether a key is configured on the server. */
 export async function GET() {
   const provider = resolveProvider();
 
@@ -77,20 +123,13 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const provider = resolveProvider();
-
-  if (!provider) {
-    return NextResponse.json({
-      connected: false,
-      reply:
-        "No model provider is connected yet, so I cannot answer properly. Add a GROQ_API_KEY, OPENROUTER_API_KEY or OPENAI_API_KEY under Settings, Environment Variables in Vercel, then redeploy.",
-    });
-  }
-
   let messages: Message[];
+  let suppliedKey: string | undefined;
 
   try {
-    messages = extractMessages(await request.json());
+    const parsed = parseBody(await request.json());
+    messages = parsed.messages;
+    suppliedKey = parsed.apiKey;
   } catch {
     return NextResponse.json(
       { error: "Request body must be valid JSON." },
@@ -103,6 +142,16 @@ export async function POST(request: Request) {
       { error: "No messages were provided." },
       { status: 400 },
     );
+  }
+
+  const provider = resolveProvider(suppliedKey);
+
+  if (!provider) {
+    return NextResponse.json({
+      connected: false,
+      reply:
+        "No model is connected yet. Open Settings in this page and paste an API key from Groq, OpenRouter or OpenAI to start.",
+    });
   }
 
   try {
@@ -129,7 +178,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error: `${provider.name} returned status ${response.status}.`,
-          detail: detail.slice(0, 400),
+          detail: detail.slice(0, 300),
         },
         { status: 502 },
       );
@@ -139,12 +188,12 @@ export async function POST(request: Request) {
       choices?: Array<{ message?: { content?: string } }>;
     } = await response.json();
 
-    const reply = data.choices?.[0]?.message?.content;
-
     return NextResponse.json({
       connected: true,
       provider: provider.name,
-      reply: reply ?? "The model returned an empty response.",
+      reply:
+        data.choices?.[0]?.message?.content ??
+        "The model returned an empty response.",
     });
   } catch {
     return NextResponse.json(

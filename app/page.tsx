@@ -1,11 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AlertTriangle, Loader2, Send, Sparkles } from "lucide-react";
+import { AlertTriangle, Key, Loader2, Send, Sparkles } from "lucide-react";
 
 type Role = "user" | "assistant";
 type Message = { role: Role; content: string };
 type Status = { connected: boolean; provider: string | null };
+
+const STORAGE_KEY = "hyper.apiKey";
 
 export default function Page() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -13,16 +15,24 @@ export default function Page() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<Status | null>(null);
+  const [apiKey, setApiKey] = useState("");
+  const [keyDraft, setKeyDraft] = useState("");
+  const [showSettings, setShowSettings] = useState(false);
   const endRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const stored = window.localStorage.getItem(STORAGE_KEY) ?? "";
+    setApiKey(stored);
+    setKeyDraft(stored);
+  }, []);
 
   const loadStatus = useCallback(async () => {
     try {
       const response = await fetch("/api/chat");
       if (!response.ok) return;
-      const data: Status = await response.json();
-      setStatus(data);
+      setStatus((await response.json()) as Status);
     } catch {
-      // Status is advisory only; the chat still works without it.
+      // Status is advisory only.
     }
   }, []);
 
@@ -33,6 +43,23 @@ export default function Page() {
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
+
+  const ready = Boolean(status?.connected) || apiKey.trim().length > 0;
+
+  function saveKey(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const trimmed = keyDraft.trim();
+    window.localStorage.setItem(STORAGE_KEY, trimmed);
+    setApiKey(trimmed);
+    setShowSettings(false);
+    setError(null);
+  }
+
+  function clearKey() {
+    window.localStorage.removeItem(STORAGE_KEY);
+    setApiKey("");
+    setKeyDraft("");
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -50,7 +77,10 @@ export default function Page() {
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: next }),
+        body: JSON.stringify({
+          messages: next,
+          apiKey: apiKey.trim() || undefined,
+        }),
       });
 
       const data: { reply?: string; error?: string; detail?: string } =
@@ -79,22 +109,61 @@ export default function Page() {
         <div className="brand">
           <Sparkles size={20} aria-hidden="true" />
           <span>Hyper AI Assistant</span>
+          <button
+            className="settings-toggle"
+            type="button"
+            onClick={() => setShowSettings((open) => !open)}
+            aria-label="API key settings"
+          >
+            <Key size={16} aria-hidden="true" />
+          </button>
         </div>
         <p className="tagline">
           {status?.connected
             ? `Connected to ${status.provider}.`
-            : "Your AI that gets things done."}
+            : apiKey
+              ? "Connected with your saved key."
+              : "Your AI that gets things done."}
         </p>
       </header>
 
-      {status && !status.connected ? (
+      {showSettings ? (
+        <form className="settings" onSubmit={saveKey}>
+          <label htmlFor="apiKey">API key</label>
+          <p className="hint">
+            Paste a key from Groq (free, starts with <code>gsk_</code>),
+            OpenRouter (<code>sk-or-</code>) or OpenAI (<code>sk-</code>). It is
+            stored only in this browser and never committed to the repository.
+          </p>
+          <div className="settings-row">
+            <input
+              id="apiKey"
+              className="field"
+              type="password"
+              value={keyDraft}
+              onChange={(event) => setKeyDraft(event.target.value)}
+              placeholder="gsk_..."
+              autoComplete="off"
+              spellCheck={false}
+            />
+            <button className="primary" type="submit">
+              Save
+            </button>
+          </div>
+          {apiKey ? (
+            <button className="link" type="button" onClick={clearKey}>
+              Remove saved key
+            </button>
+          ) : null}
+        </form>
+      ) : null}
+
+      {!ready && !showSettings ? (
         <div className="notice" role="status">
           <AlertTriangle size={16} aria-hidden="true" />
           <div>
-            <strong>No model connected.</strong> Add{" "}
-            <code>GROQ_API_KEY</code>, <code>OPENROUTER_API_KEY</code> or{" "}
-            <code>OPENAI_API_KEY</code> in Vercel under Settings, Environment
-            Variables, then redeploy.
+            <strong>No model connected.</strong> Tap the key icon above and
+            paste an API key to start. A free key from console.groq.com works.
           </div>
         </div>
       ) : null}
@@ -132,7 +201,7 @@ export default function Page() {
           className="field"
           value={input}
           onChange={(event) => setInput(event.target.value)}
-          placeholder="Send a message"
+          placeholder={ready ? "Send a message" : "Add an API key to begin"}
           aria-label="Message"
           autoComplete="off"
         />

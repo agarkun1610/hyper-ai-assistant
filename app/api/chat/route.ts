@@ -6,8 +6,53 @@ export const dynamic = "force-dynamic";
 type Role = "user" | "assistant" | "system";
 type Message = { role: Role; content: string };
 
-const NO_PROVIDER_REPLY =
-  "Hyper AI Assistant is deployed and running. No model provider is connected yet, so this is a local placeholder response. Add OPENAI_API_KEY (and optionally OPENAI_MODEL) under Settings, Environment Variables in your Vercel project, then redeploy to enable live answers.";
+type Provider = {
+  name: string;
+  endpoint: string;
+  apiKey: string;
+  model: string;
+};
+
+const SYSTEM_PROMPT =
+  "You are Hyper AI Assistant. Be concise, direct and practical. Answer in plain language and avoid filler.";
+
+/**
+ * Picks the first configured provider. Groq and OpenRouter both offer free
+ * tiers, so they are checked before OpenAI, which requires paid credit.
+ */
+function resolveProvider(): Provider | null {
+  const groqKey = process.env.GROQ_API_KEY;
+  if (groqKey) {
+    return {
+      name: "Groq",
+      endpoint: "https://api.groq.com/openai/v1/chat/completions",
+      apiKey: groqKey,
+      model: process.env.MODEL ?? "llama-3.3-70b-versatile",
+    };
+  }
+
+  const openRouterKey = process.env.OPENROUTER_API_KEY;
+  if (openRouterKey) {
+    return {
+      name: "OpenRouter",
+      endpoint: "https://openrouter.ai/api/v1/chat/completions",
+      apiKey: openRouterKey,
+      model: process.env.MODEL ?? "meta-llama/llama-3.3-70b-instruct:free",
+    };
+  }
+
+  const openAiKey = process.env.OPENAI_API_KEY;
+  if (openAiKey) {
+    return {
+      name: "OpenAI",
+      endpoint: "https://api.openai.com/v1/chat/completions",
+      apiKey: openAiKey,
+      model: process.env.MODEL ?? process.env.OPENAI_MODEL ?? "gpt-4o-mini",
+    };
+  }
+
+  return null;
+}
 
 function extractMessages(body: unknown): Message[] {
   if (
@@ -20,7 +65,28 @@ function extractMessages(body: unknown): Message[] {
   return [];
 }
 
+/** Lets the interface show whether a model provider is connected. */
+export async function GET() {
+  const provider = resolveProvider();
+
+  return NextResponse.json({
+    connected: provider !== null,
+    provider: provider?.name ?? null,
+    model: provider?.model ?? null,
+  });
+}
+
 export async function POST(request: Request) {
+  const provider = resolveProvider();
+
+  if (!provider) {
+    return NextResponse.json({
+      connected: false,
+      reply:
+        "No model provider is connected yet, so I cannot answer properly. Add a GROQ_API_KEY, OPENROUTER_API_KEY or OPENAI_API_KEY under Settings, Environment Variables in Vercel, then redeploy.",
+    });
+  }
+
   let messages: Message[];
 
   try {
@@ -32,29 +98,24 @@ export async function POST(request: Request) {
     );
   }
 
-  const apiKey = process.env.OPENAI_API_KEY;
-
-  if (!apiKey) {
-    return NextResponse.json({ reply: NO_PROVIDER_REPLY });
+  if (messages.length === 0) {
+    return NextResponse.json(
+      { error: "No messages were provided." },
+      { status: 400 },
+    );
   }
 
-  const model = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
-
   try {
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    const response = await fetch(provider.endpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: `Bearer ${provider.apiKey}`,
       },
       body: JSON.stringify({
-        model,
+        model: provider.model,
         messages: [
-          {
-            role: "system",
-            content:
-              "You are Hyper AI Assistant. Be concise, direct and practical.",
-          },
+          { role: "system", content: SYSTEM_PROMPT },
           ...messages.map((message) => ({
             role: message.role,
             content: message.content,
@@ -64,8 +125,12 @@ export async function POST(request: Request) {
     });
 
     if (!response.ok) {
+      const detail = await response.text();
       return NextResponse.json(
-        { error: `Model provider returned status ${response.status}.` },
+        {
+          error: `${provider.name} returned status ${response.status}.`,
+          detail: detail.slice(0, 400),
+        },
         { status: 502 },
       );
     }
@@ -77,11 +142,13 @@ export async function POST(request: Request) {
     const reply = data.choices?.[0]?.message?.content;
 
     return NextResponse.json({
+      connected: true,
+      provider: provider.name,
       reply: reply ?? "The model returned an empty response.",
     });
   } catch {
     return NextResponse.json(
-      { error: "Could not reach the model provider." },
+      { error: `Could not reach ${provider.name}.` },
       { status: 502 },
     );
   }

@@ -241,7 +241,7 @@ export default function GstPage() {
   return (
     <main className="gst">
       <div className="gst-head">
-        <h1>Hyper Books</h1>
+        <h1>HyperBooks</h1>
         <button
           className="gst-btn ghost"
           type="button"

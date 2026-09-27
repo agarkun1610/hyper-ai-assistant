@@ -1,0 +1,215 @@
+.gst {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 16px 14px 56px;
+  color: #10233a;
+}
+
+.gst-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.gst-head h1 {
+  font-size: 1.15rem;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.gst-sub {
+  margin: 0 0 16px;
+  font-size: 0.82rem;
+  color: #5b6b80;
+}
+
+.gst-card {
+  background: #fff;
+  border: 1px solid #dfe5ec;
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 14px;
+}
+
+.gst-label {
+  display: block;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6b7a8d;
+  margin-bottom: 5px;
+}
+
+.gst-input {
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid #cfd8e3;
+  border-radius: 9px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  background: #fff;
+  color: inherit;
+}
+
+.gst-input:focus {
+  outline: 2px solid #2f6fd0;
+  outline-offset: -1px;
+}
+
+.gst-btn {
+  padding: 11px 16px;
+  border: 0;
+  border-radius: 9px;
+  background: #143b6b;
+  color: #fff;
+  font-size: 0.92rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.gst-btn[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.gst-btn.ghost {
+  background: #eef2f7;
+  color: #274364;
+}
+
+.gst-btn.danger {
+  background: #fdecec;
+  color: #a22525;
+}
+
+.gst-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.gst-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.gst-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 14px;
+  overflow-x: auto;
+}
+
+.gst-tab {
+  padding: 8px 13px;
+  border-radius: 999px;
+  border: 1px solid #dfe5ec;
+  background: #fff;
+  font-size: 0.85rem;
+  font-family: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+  color: #41526a;
+}
+
+.gst-tab.on {
+  background: #143b6b;
+  border-color: #143b6b;
+  color: #fff;
+}
+
+.gst-issue {
+  border-left: 3px solid #d7a13b;
+  background: #fffaf0;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 9px;
+  font-size: 0.87rem;
+}
+
+.gst-issue.error {
+  border-left-color: #c53a3a;
+  background: #fdf3f3;
+}
+
+.gst-issue strong {
+  display: block;
+  margin-bottom: 3px;
+}
+
+.gst-issue span {
+  color: #55657a;
+}
+
+.gst-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid #eef1f5;
+  font-size: 0.9rem;
+}
+
+.gst-line:last-child {
+  border-bottom: 0;
+}
+
+.gst-line b {
+  font-variant-numeric: tabular-nums;
+}
+
+.gst-muted {
+  color: #6b7a8d;
+  font-size: 0.82rem;
+}
+
+.gst-pill {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #eef2f7;
+  color: #41526a;
+}
+
+.gst-pill.sale {
+  background: #e8f4ec;
+  color: #256339;
+}
+
+.gst-pill.notice {
+  background: #fdecec;
+  color: #a22525;
+}
+
+.gst-empty {
+  text-align: center;
+  color: #7c8a9c;
+  font-size: 0.88rem;
+  padding: 26px 10px;
+}
+
+.gst-err {
+  color: #a22525;
+  font-size: 0.86rem;
+  margin: 8px 0 0;
+}
+
+.gst-preview {
+  width: 100%;
+  border-radius: 9px;
+  margin-top: 10px;
+  border: 1px solid #dfe5ec;
+}
+
+@media (max-width: 520px) {
+  .gst-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -76,8 +76,17 @@ function providerFromKey(key: string): Provider | null {
   return null;
 }
 
-/** Server-side keys take priority; a browser-supplied key is the fallback. */
+/**
+ * A key entered in the interface takes priority over server configuration.
+ * It is an explicit, deliberate action by the person using the app, and the
+ * server value may be stale, mistyped or unreachable to edit.
+ */
 function resolveProvider(suppliedKey?: string): Provider | null {
+  if (suppliedKey) {
+    const fromSuppliedKey = providerFromKey(suppliedKey);
+    if (fromSuppliedKey) return fromSuppliedKey;
+  }
+
   const override = envValue("MODEL");
 
   const groqKey = envValue("GROQ_API_KEY");
@@ -101,10 +110,6 @@ function resolveProvider(suppliedKey?: string): Provider | null {
       apiKey: openAiKey,
       model: override ?? envValue("OPENAI_MODEL") ?? OPENAI.defaultModel,
     };
-  }
-
-  if (suppliedKey) {
-    return providerFromKey(suppliedKey);
   }
 
   return null;

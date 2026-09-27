@@ -34,27 +34,43 @@ const OPENAI = {
   defaultModel: "gpt-4o-mini",
 };
 
+/**
+ * Reads an environment variable, treating blank or whitespace-only values as
+ * unset. Hosting dashboards routinely store empty strings for optional
+ * variables, which would otherwise be passed through as real values.
+ */
+function envValue(name: string): string | undefined {
+  const raw = process.env[name];
+  if (typeof raw !== "string") return undefined;
+  const trimmed = raw.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
 /** Identifies a provider from the shape of the key itself. */
 function providerFromKey(key: string): Provider | null {
   const trimmed = key.trim();
   if (trimmed.length === 0) return null;
 
-  const model = process.env.MODEL;
+  const override = envValue("MODEL");
 
   if (trimmed.startsWith("gsk_")) {
-    return { ...GROQ, apiKey: trimmed, model: model ?? GROQ.defaultModel };
+    return { ...GROQ, apiKey: trimmed, model: override ?? GROQ.defaultModel };
   }
 
   if (trimmed.startsWith("sk-or-")) {
     return {
       ...OPENROUTER,
       apiKey: trimmed,
-      model: model ?? OPENROUTER.defaultModel,
+      model: override ?? OPENROUTER.defaultModel,
     };
   }
 
   if (trimmed.startsWith("sk-")) {
-    return { ...OPENAI, apiKey: trimmed, model: model ?? OPENAI.defaultModel };
+    return {
+      ...OPENAI,
+      apiKey: trimmed,
+      model: override ?? OPENAI.defaultModel,
+    };
   }
 
   return null;
@@ -62,30 +78,28 @@ function providerFromKey(key: string): Provider | null {
 
 /** Server-side keys take priority; a browser-supplied key is the fallback. */
 function resolveProvider(suppliedKey?: string): Provider | null {
-  const groqKey = process.env.GROQ_API_KEY;
+  const override = envValue("MODEL");
+
+  const groqKey = envValue("GROQ_API_KEY");
   if (groqKey) {
-    return {
-      ...GROQ,
-      apiKey: groqKey,
-      model: process.env.MODEL ?? GROQ.defaultModel,
-    };
+    return { ...GROQ, apiKey: groqKey, model: override ?? GROQ.defaultModel };
   }
 
-  const openRouterKey = process.env.OPENROUTER_API_KEY;
+  const openRouterKey = envValue("OPENROUTER_API_KEY");
   if (openRouterKey) {
     return {
       ...OPENROUTER,
       apiKey: openRouterKey,
-      model: process.env.MODEL ?? OPENROUTER.defaultModel,
+      model: override ?? OPENROUTER.defaultModel,
     };
   }
 
-  const openAiKey = process.env.OPENAI_API_KEY;
+  const openAiKey = envValue("OPENAI_API_KEY");
   if (openAiKey) {
     return {
       ...OPENAI,
       apiKey: openAiKey,
-      model: process.env.MODEL ?? process.env.OPENAI_MODEL ?? OPENAI.defaultModel,
+      model: override ?? envValue("OPENAI_MODEL") ?? OPENAI.defaultModel,
     };
   }
 
@@ -191,6 +205,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       connected: true,
       provider: provider.name,
+      model: provider.model,
       reply:
         data.choices?.[0]?.message?.content ??
         "The model returned an empty response.",

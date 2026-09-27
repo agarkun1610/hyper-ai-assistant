@@ -19,7 +19,7 @@ const SYSTEM_PROMPT =
 const GROQ = {
   name: "Groq",
   endpoint: "https://api.groq.com/openai/v1/chat/completions",
-  defaultModel: "llama-3.3-70b-versatile",
+  defaultModel: "qwen/qwen3.8-27b",
 };
 
 const OPENROUTER = {

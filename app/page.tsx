@@ -1,13 +1,21 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AlertTriangle, Key, Loader2, Send, Sparkles } from "lucide-react";
+import {
+  AlertTriangle,
+  Key,
+  Loader2,
+  Send,
+  Sparkles,
+  SquarePen,
+} from "lucide-react";
 
 type Role = "user" | "assistant";
 type Message = { role: Role; content: string };
 type Status = { connected: boolean; provider: string | null };
 
 const STORAGE_KEY = "hyper.apiKey";
+const MESSAGES_KEY = "hyper.messages";
 
 export default function Page() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -24,7 +32,31 @@ export default function Page() {
     const stored = window.localStorage.getItem(STORAGE_KEY) ?? "";
     setApiKey(stored);
     setKeyDraft(stored);
+
+    // Restore the conversation. Phones aggressively discard background tabs,
+    // so in-memory state alone loses the thread whenever the page is reloaded.
+    try {
+      const saved = window.localStorage.getItem(MESSAGES_KEY);
+      if (saved) {
+        const parsed: unknown = JSON.parse(saved);
+        if (Array.isArray(parsed)) setMessages(parsed as Message[]);
+      }
+    } catch {
+      // A corrupt entry should never block startup.
+    }
   }, []);
+
+  useEffect(() => {
+    try {
+      // Keep the tail only: long threads can exceed the storage quota.
+      window.localStorage.setItem(
+        MESSAGES_KEY,
+        JSON.stringify(messages.slice(-100)),
+      );
+    } catch {
+      // Storage may be full or blocked; the chat still works in memory.
+    }
+  }, [messages]);
 
   const loadStatus = useCallback(async () => {
     try {
@@ -59,6 +91,12 @@ export default function Page() {
     window.localStorage.removeItem(STORAGE_KEY);
     setApiKey("");
     setKeyDraft("");
+  }
+
+  function startNewChat() {
+    setMessages([]);
+    setError(null);
+    window.localStorage.removeItem(MESSAGES_KEY);
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -109,6 +147,15 @@ export default function Page() {
         <div className="brand">
           <Sparkles size={20} aria-hidden="true" />
           <span>Hyper AI Assistant</span>
+          <button
+            className="settings-toggle"
+            type="button"
+            onClick={startNewChat}
+            aria-label="New chat"
+            title="New chat"
+          >
+            <SquarePen size={16} aria-hidden="true" />
+          </button>
           <button
             className="settings-toggle"
             type="button"

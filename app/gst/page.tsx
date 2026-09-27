@@ -241,7 +241,7 @@ export default function GstPage() {
   return (
     <main className="gst">
       <div className="gst-head">
-        <h1>HyperBooks</h1>
+        <h1>Hyper</h1>
         <button
           className="gst-btn ghost"
           type="button"
@@ -251,8 +251,9 @@ export default function GstPage() {
         </button>
       </div>
       <p className="gst-sub">
-        Photograph a bill or a notice. The figures are read for you, then
-        checked against the GST rules before they reach your books.
+        Your compliance partner. Photograph a bill or a notice — the figures
+        are read for you, then checked against the GST rules before they reach
+        your books.
       </p>
 
       {showKey ? (

@@ -7,21 +7,17 @@ import type { ReactNode } from "react";
  * bookmark and a link shared on WhatsApp will show.
  */
 export const metadata: Metadata = {
-  title: "HyperBooks — GST books for Indian retailers",
+  title: "Hyper — your compliance partner",
   description:
     "Photograph a purchase bill, a sales bill or a GST notice. The figures are read for you and checked against the GST rules before they reach your books.",
   openGraph: {
-    title: "HyperBooks",
+    title: "Hyper — your compliance partner",
     description:
-      "Photograph a bill. HyperBooks reads it, checks it, and keeps your stock and returns straight.",
+      "Photograph a bill. Hyper reads it, checks it, and keeps your stock and returns straight.",
     type: "website",
   },
 };
 
-export default function HyperBooksLayout({
-  children,
-}: {
-  children: ReactNode;
-}) {
+export default function HyperLayout({ children }: { children: ReactNode }) {
   return children;
 }
